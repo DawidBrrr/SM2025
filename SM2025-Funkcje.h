@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include <SDL2/SDL.h>
 
 void Funkcja1();
@@ -45,6 +47,11 @@ Uint16 getRGB565D_(int xx,int yy);
 
 void testujRGBkonwersje();
 void testujRGBkonwersjeDithering();
+
+void podprobkujYUV_420();
+void podprobkujYCbCr_420();
+void podprobkujYIQ_420();
+void podprobkujHSL_L_420();
 
 
 #endif // SM2025_FUNKCJE_H_INCLUDED
