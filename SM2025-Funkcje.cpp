@@ -6,6 +6,8 @@
 #include "SM2025-Pliki.h"
 #include "SM2025-kolory.h"
 
+#define SUBW(sw) (((sw) + 1) / 2)
+#define SUBH(sh) (((sh) + 1) / 2)
 
 static const int bayer4x4[4][4] = {
     {  6,  14,  8, 16 },
@@ -17,28 +19,32 @@ static const int bayer4x4[4][4] = {
 
 void Funkcja1() {
 
-    narzucona();
+    //narzucona();
+    podprobkujYUV_420();
 
     SDL_UpdateWindowSurface(window);
 }
 
 void Funkcja2() {
 
-    NarzuconaS();
+    //NarzuconaS();
+    podprobkujYIQ_420();
 
     SDL_UpdateWindowSurface(window);
 }
 
 void Funkcja3() {
 
-    paletaWykryta();
+    //paletaWykryta();
+    podprobkujYCbCr_420();
 
     SDL_UpdateWindowSurface(window);
 }
 
 void Funkcja4() {
 
-    paletaMedianCut();
+    //paletaMedianCut();
+    podprobkujHSL_L_420();
 
     SDL_UpdateWindowSurface(window);
 }
@@ -611,8 +617,273 @@ void testujRGBkonwersjeDithering()
 }
 
 
+//Probkowanie
+void podprobkujYUV_420()
+{
+    int sw2 = SUBW(szerokosc);
+    int sh2 = SUBH(wysokosc);
 
 
+    float *U = (float*)malloc(sw2 * sh2 * sizeof(float));
+    float *V = (float*)malloc(sw2 * sh2 * sizeof(float));
+    if (!U || !V)
+    {
+        free(U);
+        free(V);
+        return;
+    }
 
 
+    for (int by = 0; by < sh2; ++by)
+    {
+        for (int bx = 0; bx < sw2; ++bx)
+        {
+            int x0 = bx * 2;
+            int y0 = by * 2;
+            float sumU = 0.0f, sumV = 0.0f;
+            int count = 0;
+            for (int yy = 0; yy < 2; ++yy)
+            {
+                for (int xx = 0; xx < 2; ++xx)
+                {
+                    int x = x0 + xx;
+                    int y = y0 + yy;
+                    if (x < szerokosc && y < wysokosc)
+                    {
+                        YUV yuv = getYUV(x, y);
+                        sumU += (float)yuv.u;
+                        sumV += (float)yuv.v;
+                        ++count;
+                    }
+                }
+            }
+            int idx = by * sw2 + bx;
+            U[idx] = sumU / (count ? count : 1);
+            V[idx] = sumV / (count ? count : 1);
+        }
+    }
 
+
+    for (int y = 0; y < wysokosc; ++y)
+    {
+        for (int x = 0; x < szerokosc; ++x)
+        {
+            YUV yuv = getYUV(x, y);
+            int bx = x / 2;
+            int by = y / 2;
+            int idx = by * sw2 + bx;
+            YUV out;
+            out.y = yuv.y;
+            out.u = (Uint8)SDL_clamp((int)(U[idx] + 0.5f), 0, 255);
+            out.v = (Uint8)SDL_clamp((int)(V[idx] + 0.5f), 0, 255);
+            SDL_Color rgb = YUVtoRGB(out);
+            setPixel(x + szerokosc / 2, y, rgb.r, rgb.g, rgb.b);
+        }
+    }
+
+
+    SDL_UpdateWindowSurface(window);
+    free(U);
+    free(V);
+}
+
+void podprobkujYCbCr_420()
+{
+    int sw2 = SUBW(szerokosc);
+    int sh2 = SUBH(wysokosc);
+
+
+    float *Cb = (float*)malloc(sw2 * sh2 * sizeof(float));
+    float *Cr = (float*)malloc(sw2 * sh2 * sizeof(float));
+    if (!Cb || !Cr)
+    {
+        free(Cb);
+        free(Cr);
+        return;
+    }
+
+
+    for (int by = 0; by < sh2; ++by)
+    {
+        for (int bx = 0; bx < sw2; ++bx)
+        {
+            int x0 = bx * 2;
+            int y0 = by * 2;
+            float sumCb = 0.0f, sumCr = 0.0f;
+            int count = 0;
+            for (int yy = 0; yy < 2; ++yy)
+            {
+                for (int xx = 0; xx < 2; ++xx)
+                {
+                    int x = x0 + xx;
+                    int y = y0 + yy;
+                    if (x < szerokosc && y < wysokosc)
+                    {
+                        YCbCr ycbcr = getYCbCr(x, y);
+                        sumCb += (float)ycbcr.cb;
+                        sumCr += (float)ycbcr.cr;
+                        ++count;
+                    }
+                }
+            }
+            int idx = by * sw2 + bx;
+            Cb[idx] = sumCb / (count ? count : 1);
+            Cr[idx] = sumCr / (count ? count : 1);
+        }
+    }
+
+
+    for (int y = 0; y < wysokosc; ++y)
+    {
+        for (int x = 0; x < szerokosc; ++x)
+        {
+            YCbCr ycbcr = getYCbCr(x, y);
+            int bx = x / 2;
+            int by = y / 2;
+            int idx = by * sw2 + bx;
+            YCbCr out;
+            out.y = ycbcr.y;
+            out.cb = (Uint8)SDL_clamp((int)(Cb[idx] + 0.5f), 0, 255);
+            out.cr = (Uint8)SDL_clamp((int)(Cr[idx] + 0.5f), 0, 255);
+            SDL_Color rgb = YCbCrtoRGB(out);
+            setPixel(x + szerokosc / 2, y, rgb.r, rgb.g, rgb.b);
+        }
+    }
+
+
+    SDL_UpdateWindowSurface(window);
+    free(Cb);
+    free(Cr);
+}
+
+void podprobkujYIQ_420()
+{
+    int sw2 = SUBW(szerokosc);
+    int sh2 = SUBH(wysokosc);
+
+
+    float *I = (float*)malloc(sw2 * sh2 * sizeof(float));
+    float *Q = (float*)malloc(sw2 * sh2 * sizeof(float));
+    if (!I || !Q)
+    {
+        free(I);
+        free(Q);
+        return;
+    }
+
+
+    for (int by = 0; by < sh2; ++by)
+    {
+        for (int bx = 0; bx < sw2; ++bx)
+        {
+            int x0 = bx * 2;
+            int y0 = by * 2;
+            float sumI = 0.0f, sumQ = 0.0f;
+            int count = 0;
+            for (int yy = 0; yy < 2; ++yy)
+            {
+                for (int xx = 0; xx < 2; ++xx)
+                {
+                    int x = x0 + xx;
+                    int y = y0 + yy;
+                    if (x < szerokosc && y < wysokosc)
+                    {
+                        YIQ yiq = getYIQ(x, y);
+                        sumI += (float)yiq.i;
+                        sumQ += (float)yiq.q;
+                        ++count;
+                    }
+                }
+            }
+            int idx = by * sw2 + bx;
+            I[idx] = sumI / (count ? count : 1);
+            Q[idx] = sumQ / (count ? count : 1);
+        }
+    }
+
+
+    for (int y = 0; y < wysokosc; ++y)
+    {
+        for (int x = 0; x < szerokosc; ++x)
+        {
+            YIQ yiq = getYIQ(x, y);
+            int bx = x / 2;
+            int by = y / 2;
+            int idx = by * sw2 + bx;
+            YIQ out;
+            out.y = yiq.y;
+            out.i = (Uint8)SDL_clamp((int)(I[idx] + 0.5f), 0, 255);
+            out.q = (Uint8)SDL_clamp((int)(Q[idx] + 0.5f), 0, 255);
+            SDL_Color rgb = YIQtoRGB(out);
+            setPixel(x + szerokosc / 2, y, rgb.r, rgb.g, rgb.b);
+        }
+    }
+
+
+    SDL_UpdateWindowSurface(window);
+    free(I);
+    free(Q);
+}
+
+void podprobkujHSL_L_420()
+{
+    int sw2 = SUBW(szerokosc);
+    int sh2 = SUBH(wysokosc);
+
+
+    float *L = (float*)malloc(sw2 * sh2 * sizeof(float));
+    if (!L)
+    {
+        return;
+    }
+
+
+    for (int by = 0; by < sh2; ++by)
+    {
+        for (int bx = 0; bx < sw2; ++bx)
+        {
+            int x0 = bx * 2;
+            int y0 = by * 2;
+            float sumL = 0.0f;
+            int count = 0;
+            for (int yy = 0; yy < 2; ++yy)
+            {
+                for (int xx = 0; xx < 2; ++xx)
+                {
+                    int x = x0 + xx;
+                    int y = y0 + yy;
+                    if (x < szerokosc && y < wysokosc)
+                    {
+                        HSL hsl = getHSL(x, y);
+                        sumL += (float)hsl.l;
+                        ++count;
+                    }
+                }
+            }
+            int idx = by * sw2 + bx;
+            L[idx] = sumL / (count ? count : 1);
+        }
+    }
+
+
+    for (int y = 0; y < wysokosc; ++y)
+    {
+        for (int x = 0; x < szerokosc; ++x)
+        {
+            HSL hsl = getHSL(x, y);
+            int bx = x / 2;
+            int by = y / 2;
+            int idx = by * sw2 + bx;
+            HSL out;
+            out.h = hsl.h;
+            out.s = hsl.s;
+            out.l = (Uint8)SDL_clamp((int)(L[idx] + 0.5f), 0, 255);
+            SDL_Color rgb = HSLtoRGB(out);
+            setPixel(x + szerokosc / 2, y, rgb.r, rgb.g, rgb.b);
+        }
+    }
+
+
+    SDL_UpdateWindowSurface(window);
+    free(L);
+}

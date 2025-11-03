@@ -3435,7 +3435,7 @@
 	"SM2025-kolory.h"
 	<math.h>
 
-1761756313 source:c:\users\dbrach\documents\github\sm2025\sm2025-funkcje.cpp
+1762195377 source:c:\users\dbrach\documents\github\sm2025\sm2025-funkcje.cpp
 	"SM2025-Funkcje.h"
 	"SM2025-Zmienne.h"
 	"SM2025-Paleta.h"
@@ -3443,9 +3443,11 @@
 	"SM2025-Pliki.h"
 	"SM2025-kolory.h"
 
-1761755649 c:\users\dbrach\documents\github\sm2025\sm2025-funkcje.h
+1762195395 c:\users\dbrach\documents\github\sm2025\sm2025-funkcje.h
 	<stdio.h>
 	<math.h>
+	<stdlib.h>
+	<string.h>
 	<SDL2/SDL.h>
 
 1760011958 c:\users\dbrach\documents\github\sm2025\sdl2\include\sdl2\sdl.h
