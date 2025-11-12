@@ -51,7 +51,8 @@ void Funkcja4() {
 
 void Funkcja5() {
 
-    paletaMedianCutBW();
+    //paletaMedianCutBW();
+    PokaFilter();
 
     SDL_UpdateWindowSurface(window);
 }
@@ -577,7 +578,7 @@ void testujRGBkonwersje()
     for (int y = 0; y < wysokosc / 2; y++) {
         for (int x = 0; x < szerokosc / 2; x++) {
             kolor_quant = getRGB555_(x, y);
-            setRGB555(x + szerokosc / 2, y, kolor_quant);
+            setRGB555(x + szerokosc / 2, y + wysokosc / 2, kolor_quant);
         }
     }
     SDL_UpdateWindowSurface(window);
@@ -585,7 +586,7 @@ void testujRGBkonwersje()
     for (int y = 0; y < wysokosc / 2; y++) {
         for (int x = 0; x < szerokosc / 2; x++) {
             kolor_quant = getRGB565_(x, y);
-            setRGB565(x + szerokosc / 2, y + wysokosc / 2, kolor_quant);
+            setRGB565(x + szerokosc / 2, y, kolor_quant);
         }
     }
 
@@ -887,3 +888,104 @@ void podprobkujHSL_L_420()
     SDL_UpdateWindowSurface(window);
     free(L);
 }
+
+//Filtry predykcyjne typ1,2,3,4
+
+//Filtry predykcyjne
+void PokaFilter(){
+    // Szerokość i wysokość połowy obrazu
+    int width = szerokosc / 2;
+    int height = wysokosc / 2;
+    int bpp = 2; // 16-bit RGB565 = 2 bajty na piksel
+    int data_size = width * height * bpp;
+
+    uint8_t *raw = (uint8_t*)malloc(data_size);
+    uint8_t *filtered = (uint8_t*)malloc(data_size);
+    uint8_t *restored = (uint8_t*)malloc(data_size);
+
+    if (!raw || !filtered)
+    {
+        printf("Błąd: brak pamięci!\n");
+        return;
+    }
+
+    // Pobiera z prawego górnego rogu
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            Uint16 c = getRGB565D_(x + width, y); // ↖️ prawy górny
+            memcpy(raw + (y * width + x) * 2, &c, 2);
+        }
+    }
+
+    // typ filtra
+    int filter_type = 1; // 1=Sub, 2=Up, 3=Average, 4=Paeth
+
+    KodF1Sub(raw, filtered, width, height, bpp);
+
+    // przefiltrowany obraz w PRAWYM DOLNYM rogu
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            Uint16 kolor_filtered;
+            memcpy(&kolor_filtered, filtered + (y * width + x) * 2, 2);
+
+            // rysuj w prawej dolnej części
+            setRGB565(x + width, y + height, kolor_filtered);
+        }
+    }
+
+    SDL_UpdateWindowSurface(window);
+    SDL_Delay(2000);
+
+    DekodF1Sub(filtered, restored, width, height, bpp);
+
+    //Rysuj odfiltrowany spowrotem
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            Uint16 kolor_restored;
+            memcpy(&kolor_restored, restored + (y * width + x) * 2, 2);
+            setRGB565(x + width, y + height, kolor_restored);
+        }
+    }
+
+    SDL_UpdateWindowSurface(window);
+
+    // Sprzątanie
+    free(raw);
+    free(filtered);
+    free(restored);
+
+}
+void KodF1Sub(const uint8_t *raw, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *row = raw + y * stride;
+        uint8_t *orow = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            if (x >= bpp) orow[x] = (uint8_t)(row[x] - row[x - bpp]);
+            else orow[x] = row[x]; // pierwszy pixel w linii - left = 0
+        }
+    }
+}
+
+void DekodF1Sub(const uint8_t *in, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *irow = in + y * stride;
+        uint8_t *row = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            if (x >= bpp) row[x] = (uint8_t)(irow[x] + row[x - bpp]);
+            else row[x] = irow[x];
+        }
+    }
+}
+

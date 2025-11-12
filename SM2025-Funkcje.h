@@ -53,5 +53,13 @@ void podprobkujYCbCr_420();
 void podprobkujYIQ_420();
 void podprobkujHSL_L_420();
 
+//Filtry predykcyjne
+
+void PokaFilter();
+void KodF1Sub(const uint8_t *raw, uint8_t *out, int width, int height, int bpp);
+void DekodF1Sub(const uint8_t *in, uint8_t *out, int width, int height, int bpp);
+
+
+
 
 #endif // SM2025_FUNKCJE_H_INCLUDED
