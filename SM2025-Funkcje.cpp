@@ -48,7 +48,7 @@ void Funkcja4() {
 
     //paletaMedianCut();
     //podprobkujHSL_L_420();
-    PokaFilter(4,2,2);
+    PokaFilter(1,3,1);
 
     SDL_UpdateWindowSurface(window);
 }
