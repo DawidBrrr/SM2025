@@ -20,7 +20,8 @@ static const int bayer4x4[4][4] = {
 void Funkcja1() {
 
     //narzucona();
-    podprobkujYUV_420();
+    //podprobkujYUV_420();
+    PokaFilter(1,2,2);
 
     SDL_UpdateWindowSurface(window);
 }
@@ -28,7 +29,8 @@ void Funkcja1() {
 void Funkcja2() {
 
     //NarzuconaS();
-    podprobkujYIQ_420();
+    //podprobkujYIQ_420();
+    PokaFilter(2,2,2);
 
     SDL_UpdateWindowSurface(window);
 }
@@ -36,7 +38,8 @@ void Funkcja2() {
 void Funkcja3() {
 
     //paletaWykryta();
-    podprobkujYCbCr_420();
+    //podprobkujYCbCr_420();
+    PokaFilter(3,2,2);
 
     SDL_UpdateWindowSurface(window);
 }
@@ -44,14 +47,16 @@ void Funkcja3() {
 void Funkcja4() {
 
     //paletaMedianCut();
-    podprobkujHSL_L_420();
+    //podprobkujHSL_L_420();
+    PokaFilter(1,3,1);
 
     SDL_UpdateWindowSurface(window);
 }
 
 void Funkcja5() {
 
-    paletaMedianCutBW();
+    //paletaMedianCutBW();
+    PokaFilter(4,3,1);
 
     SDL_UpdateWindowSurface(window);
 }
@@ -577,7 +582,7 @@ void testujRGBkonwersje()
     for (int y = 0; y < wysokosc / 2; y++) {
         for (int x = 0; x < szerokosc / 2; x++) {
             kolor_quant = getRGB555_(x, y);
-            setRGB555(x + szerokosc / 2, y, kolor_quant);
+            setRGB555(x + szerokosc / 2, y + wysokosc / 2, kolor_quant);
         }
     }
     SDL_UpdateWindowSurface(window);
@@ -585,7 +590,7 @@ void testujRGBkonwersje()
     for (int y = 0; y < wysokosc / 2; y++) {
         for (int x = 0; x < szerokosc / 2; x++) {
             kolor_quant = getRGB565_(x, y);
-            setRGB565(x + szerokosc / 2, y + wysokosc / 2, kolor_quant);
+            setRGB565(x + szerokosc / 2, y, kolor_quant);
         }
     }
 
@@ -887,3 +892,319 @@ void podprobkujHSL_L_420()
     SDL_UpdateWindowSurface(window);
     free(L);
 }
+
+//Filtry predykcyjne typ1,2,3,4
+
+//Filtry predykcyjne
+
+// func - 1 , 2 , 3 ,4
+// bpp dla 888 - 3 dla 555 i 565 - 2
+// color type 888 - 1, 565 - 2, 555 - 3,
+void PokaFilter(int func,int bpp,int color_type){
+    // Szerokość i wysokość połowy obrazu
+    int width = szerokosc / 2;
+    int height = wysokosc / 2;
+    //int bpp = 2; // 16-bit RGB565 = 2 bajty na piksel
+    int data_size = width * height * bpp;
+
+    uint8_t *raw = (uint8_t*)malloc(data_size);
+    uint8_t *filtered = (uint8_t*)malloc(data_size);
+    uint8_t *restored = (uint8_t*)malloc(data_size);
+
+    if (!raw || !filtered)
+    {
+        printf("Błąd: brak pamięci!\n");
+        return;
+    }
+
+    // Pobiera z prawego górnego rogu
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            switch (color_type)
+        {
+            case 1: { // 24-bit 888
+                SDL_Color kolor = getPixel(x + width, y);
+                raw[(y * width + x) * 3 + 0] = kolor.r;
+                raw[(y * width + x) * 3 + 1] = kolor.g;
+                raw[(y * width + x) * 3 + 2] = kolor.b;
+                break;
+            }
+
+            case 2: { // 16-bit 565
+                Uint16 c = getRGB565D_(x + width, y);
+                memcpy(raw + (y * width + x) * 2, &c, 2);
+                break;
+            }
+
+            case 3: { // 16-bit 555
+                Uint16 c = getRGB555D_(x + width, y);
+                memcpy(raw + (y * width + x) * 2, &c, 2);
+                break;
+            }
+
+            default:
+                printf("Error: Podano bledny color_type (1=888, 2=565, 3=555)\n");
+        }
+        }
+    }
+
+    switch(func){
+        case 1:
+            KodF1Sub(raw, filtered, width, height, bpp);
+            break;
+        case 2:
+            KodF2Up(raw, filtered, width, height, bpp);
+            break;
+        case 3:
+            KodF3AVG(raw, filtered, width, height, bpp);
+            break;
+        case 4:
+            KodF4Paeth(raw, filtered, width, height, bpp);
+            break;
+        default:
+            printf("Error: podano bledny kod funkcj - mozliwe(1,2,3,4)\n");
+
+    }
+
+    // przefiltrowany obraz w PRAWYM DOLNYM rogu
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+
+            // rysuj w prawej dolnej części
+            switch(color_type){
+                case 1:{
+                    Uint8 R = filtered[(y * width + x) * 3 + 0];
+                    Uint8 G = filtered[(y * width + x) * 3 + 1];
+                    Uint8 B = filtered[(y * width + x) * 3 + 2];
+                    setPixel(x + width, y + height, R, G, B);
+                    break;
+                }
+                case 2:{
+                    Uint16 kolor_filtered;
+                    memcpy(&kolor_filtered, filtered + (y * width + x) * 2, 2);
+                    setRGB565(x + width, y + height, kolor_filtered);
+                    break;
+                }
+                case 3:{
+                    Uint16 kolor_filtered;
+                    memcpy(&kolor_filtered, filtered + (y * width + x) * 2, 2);
+                    setRGB555(x + width, y + height, kolor_filtered);
+                    break;
+                }
+                default:
+                    printf("Error: Podano bledny color_type - mozliwe(1,2,3)");
+
+
+            }
+        }
+    }
+
+    SDL_UpdateWindowSurface(window);
+    SDL_Delay(2000);
+
+    switch(func){
+        case 1:
+            DekodF1Sub(filtered, restored, width, height, bpp);
+            break;
+        case 2:
+            DekodF2Up(filtered, restored, width, height, bpp);
+            break;
+        case 3:
+            DekodF3AVG(filtered, restored, width, height, bpp);
+            break;
+        case 4:
+            DekodF4Paeth(filtered, restored, width, height, bpp);
+            break;
+        default:
+            printf("Error: podano bledny kod funkcji - mozliwe(1,2,3,4)\n");
+            return;
+    }
+
+    //Rysuj odfiltrowany spowrotem
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            switch(color_type) {
+            case 1: { // 24-bit RGB888
+                Uint8 R = restored[(y * width + x) * 3 + 0];
+                Uint8 G = restored[(y * width + x) * 3 + 1];
+                Uint8 B = restored[(y * width + x) * 3 + 2];
+                setPixel(x + width, y + height, R, G, B);
+                break;
+            }
+            case 2: { // 16-bit RGB565
+                Uint16 kolor_restored;
+                memcpy(&kolor_restored, restored + (y * width + x) * 2, 2);
+                setRGB565(x + width, y + height, kolor_restored);
+                break;
+            }
+            case 3: { // 16-bit RGB555
+                Uint16 kolor_restored;
+                memcpy(&kolor_restored, restored + (y * width + x) * 2, 2);
+                setRGB555(x + width, y + height, kolor_restored);
+                break;
+            }
+            default:
+                printf("Error: Podano bledny color_type - mozliwe(1,2,3)");
+        }
+        }
+    }
+
+    SDL_UpdateWindowSurface(window);
+
+    // Sprzątanie
+    free(raw);
+    free(filtered);
+    free(restored);
+
+}
+void KodF1Sub(const uint8_t *raw, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *row = raw + y * stride;
+        uint8_t *orow = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            if (x >= bpp) orow[x] = (uint8_t)(row[x] - row[x - bpp]);
+            else orow[x] = row[x]; // pierwszy pixel w linii - left = 0
+        }
+    }
+}
+
+void DekodF1Sub(const uint8_t *in, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *irow = in + y * stride;
+        uint8_t *row = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            if (x >= bpp) row[x] = (uint8_t)(irow[x] + row[x - bpp]);
+            else row[x] = irow[x];
+        }
+    }
+}
+
+void KodF2Up(const uint8_t *raw, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    /* pierwszy wiersz - prior = 0 */
+    memcpy(out, raw, stride);
+    for (int y = 1; y < height; ++y)
+    {
+        const uint8_t *row = raw + y * stride;
+        const uint8_t *prior = raw + (y - 1) * stride;
+        uint8_t *orow = out + y * stride;
+        for (int x = 0; x < stride; ++x) orow[x] = (uint8_t)(row[x] - prior[x]);
+    }
+}
+
+
+void DekodF2Up(const uint8_t *in, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    /* pierwszy wiersz */
+    memcpy(out, in, stride);
+    for (int y = 1; y < height; ++y)
+    {
+        const uint8_t *irow = in + y * stride;
+        const uint8_t *prior = out + (y - 1) * stride;
+        uint8_t *row = out + y * stride;
+        for (int x = 0; x < stride; ++x) row[x] = (uint8_t)(irow[x] + prior[x]);
+    }
+}
+
+void KodF3AVG(const uint8_t *raw, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *row = raw + y * stride;
+        const uint8_t *prior = (y > 0) ? (raw + (y - 1) * stride) : NULL;
+        uint8_t *orow = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            int left = (x >= bpp) ? row[x - bpp] : 0;
+            int up = (prior) ? prior[x] : 0;
+            int avg = (left + up) >> 1; /* floor((left+up)/2) */
+            orow[x] = (uint8_t)(row[x] - avg);
+        }
+    }
+}
+
+
+void DekodF3AVG(const uint8_t *in, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *irow = in + y * stride;
+        const uint8_t *prior = (y > 0) ? (out + (y - 1) * stride) : NULL;
+        uint8_t *row = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            int left = (x >= bpp) ? row[x - bpp] : 0;
+            int up = (prior) ? prior[x] : 0;
+            int avg = (left + up) >> 1;
+            row[x] = (uint8_t)(irow[x] + avg);
+        }
+    }
+}
+
+static inline int paeth_predictor(int a, int b, int c)
+{
+    int p = a + b - c;
+    int pa = abs(p - a);
+    int pb = abs(p - b);
+    int pc = abs(p - c);
+    if (pa <= pb && pa <= pc) return a;
+    if (pb <= pc) return b;
+    return c;
+}
+
+
+void KodF4Paeth(const uint8_t *raw, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *row = raw + y * stride;
+        const uint8_t *prior = (y > 0) ? (raw + (y - 1) * stride) : NULL;
+        uint8_t *orow = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            int left = (x >= bpp) ? row[x - bpp] : 0;
+            int up = (prior) ? prior[x] : 0;
+            int up_left = (prior && x >= bpp) ? prior[x - bpp] : 0;
+            int p = paeth_predictor(left, up, up_left);
+            orow[x] = (uint8_t)(row[x] - p);
+        }
+    }
+}
+
+
+void DekodF4Paeth(const uint8_t *in, uint8_t *out, int width, int height, int bpp)
+{
+    int stride = width * bpp;
+    for (int y = 0; y < height; ++y)
+    {
+        const uint8_t *irow = in + y * stride;
+        const uint8_t *prior = (y > 0) ? (out + (y - 1) * stride) : NULL;
+        uint8_t *row = out + y * stride;
+        for (int x = 0; x < stride; ++x)
+        {
+            int left = (x >= bpp) ? row[x - bpp] : 0;
+            int up = (prior) ? prior[x] : 0;
+            int up_left = (prior && x >= bpp) ? prior[x - bpp] : 0;
+            int p = paeth_predictor(left, up, up_left);
+            row[x] = (uint8_t)(irow[x] + p);
+        }
+    }
+}
+

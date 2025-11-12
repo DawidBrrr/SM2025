@@ -53,5 +53,22 @@ void podprobkujYCbCr_420();
 void podprobkujYIQ_420();
 void podprobkujHSL_L_420();
 
+//Filtry predykcyjne
+
+void PokaFilter(int func,int bpp,int color_type);
+void KodF1Sub(const uint8_t *raw, uint8_t *out, int width, int height, int bpp);
+void DekodF1Sub(const uint8_t *in, uint8_t *out, int width, int height, int bpp);
+void KodF2Up(const uint8_t *raw, uint8_t *out, int width, int height, int bpp);
+void DekodF2Up(const uint8_t *in, uint8_t *out, int width, int height, int bpp);
+void KodF3AVG(const uint8_t *raw, uint8_t *out, int width, int height, int bpp);
+void DekodF3AVG(const uint8_t *in, uint8_t *out, int width, int height, int bpp);
+static inline int paeth_predictor(int a, int b, int c);
+void KodF4Paeth(const uint8_t *raw, uint8_t *out, int width, int height, int bpp);
+void DekodF4Paeth(const uint8_t *in, uint8_t *out, int width, int height, int bpp);
+
+
+
+
+
 
 #endif // SM2025_FUNKCJE_H_INCLUDED
